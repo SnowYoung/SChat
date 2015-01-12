@@ -1,0 +1,11 @@
+{application, schat_app,
+  [{description, "schat server"},
+    {vsn, "1.0"},
+    {registered, []},
+    {applications, [kernel, stdlib]},
+    {mod, {schat_app, []}},
+    {modules, [ schat, schat_app, schat_auth,
+      schat_listener, schat_odbc, schat_parse, schat_receive,
+      schat_register, schat_route, schat_server, schat_session,
+      schat_sup,schat_codec,handle_message]},
+    {env, []}]}.

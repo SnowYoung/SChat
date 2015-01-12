@@ -1,0 +1,8 @@
+{release, {"schat app release","1.0"},{erts,"6.2.1"},
+  [
+    {kernel, "3.0.3"},
+    {stdlib, "2.2"},
+    {sasl, "2.4.1"},
+    {schat_app, "1.0"}
+  ]
+}.
