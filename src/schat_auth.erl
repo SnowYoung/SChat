@@ -105,7 +105,7 @@ handle_call({auth, UserName, Password}, _From, State) ->
     [] ->
       Reply = {error, username_or_password_error};
     [{_,Id,UserName,Password}] ->
-      Reply = {ok, Id}
+      Reply = {ok, Id,UserName}
   end,
   {reply, Reply, State};
 handle_call(_Request, _From, State) ->

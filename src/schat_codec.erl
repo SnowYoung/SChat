@@ -39,6 +39,24 @@ dec_message([Item|Body],M) ->
   end,
 dec_message(Body,NewM).
 
+
+dec_query(Body)->
+  dec_message(Body,#p_query{}).
+dec_query([],M)->
+  M;
+dec_query([Item|Body],M) ->
+  case Item of
+    {<<"type">>,Type} ->
+      NewM = M#p_query{type = Type};
+    {<<"key">>,Key} ->
+      NewM = M#p_query{key = Key}
+  end,
+dec_query(Body,NewM).
+
+enc_query_user_all_reply(Users)->
+  [{type,<<"success">>},{type,Users}].
+
+
 to_binary(X) ->
   case is_list(X) of
     true ->

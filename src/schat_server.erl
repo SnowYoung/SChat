@@ -14,7 +14,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, create_session/0, bind_session/1, logout/1,deliver/1,get_session/1]).
+-export([start_link/0, create_session/1, bind_session/1, logout/1,deliver/1,get_session/1,get_users/0]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -37,6 +37,8 @@
 deliver(Packet)->
   ok.
 
+
+
 %%--------------------------------------------------------------------
 %% @doc
 %% Starts the server
@@ -57,7 +59,6 @@ start_link() ->
   {stop, Reason :: term()} | ignore).
 init([]) ->
   lager:info("schat_server started"),
-  id_generator:start_link(),
   ets:new(?ETS_USERS, [public, ordered_set, named_table, {keypos, #user.id}]),
   {ok, #state{}}.
 
@@ -76,12 +77,13 @@ init([]) ->
   {noreply, NewState :: #state{}, timeout() | hibernate} |
   {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
   {stop, Reason :: term(), NewState :: #state{}}).
-handle_call({create_session}, _From, State) ->
-  {ok, Pid} = schat_session:start_link(),
+handle_call({create_session,Socket}, _From, State) ->
+  {ok, Pid} = schat_session:start_link(Socket),
   {reply, Pid, State};
 handle_call({remove_user, User}, _From, State) ->
   Key = User#user.id,
   ets:delete(?ETS_USERS, Key),
+  User#user.session ! {stop},
   {reply, ok, State};
 handle_call({get_session,Key},_From,State) ->
   case ets:lookup(?ETS_USERS,Key) of
@@ -91,6 +93,9 @@ handle_call({get_session,Key},_From,State) ->
       Reply = {error,not_found}
   end,
   {reply, Reply,State};
+handle_call({get_users},_From,State) ->
+  ets:tab2list(?ETS_USERS);
+
 handle_call({send_msg, Msg}, _From, State) ->
   Key = ets:first(?ETS_USERS),
   {reply, ok, State}.
@@ -121,17 +126,16 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
 
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
 
-create_session() ->
-  gen_server:call(?MODULE, {create_session}).
+get_users()->
+  gen_server:call(?MODULE,{get_users}).
+
+create_session(Socket) ->
+  gen_server:call(?MODULE, {create_session,Socket}).
 
 bind_session(Session) ->
   io:format("bind session ~p~n",[Session]),
   ets:insert(?ETS_USERS, Session).
-
 get_session(Id) ->
   gen_server:call(?MODULE,{get_session,Id}).
 

@@ -8,9 +8,11 @@
 %%%-------------------------------------------------------------------
 -author("snow").
 
--record(packet,{from,to,body,type,origin_packet}).
+-record(packet,{id,from,to,body,type,origin_packet}).
 
 -record(packet_reg,{id,username,password}).
 -record(packet_auth,{id,username,password}).
 
 -record(p_msg,{type,content}).
+
+-record(p_query,{type,key,value}).

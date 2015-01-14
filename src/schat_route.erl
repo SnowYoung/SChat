@@ -17,6 +17,8 @@ route(Packet) ->
   case Packet#packet.type of
     <<"message">> ->
         handle_message:process(Packet);
+    <<"query">> ->
+        handle_query:process(Packet);
     _ ->
       ok
   end.

@@ -9,7 +9,7 @@
 -module(schat_listener).
 -author("snow").
 
--define(TCP_OPTIONS, [binary, {packet, 0}, {reuseaddr, true}, {active, true}, {nodelay, true}, {keepalive, true}]).
+-define(TCP_OPTIONS, [binary, {packet, 4}, {reuseaddr, true}, {active, true}, {nodelay, true}, {keepalive, true}]).
 
 %%
 %% Exported Functions
@@ -60,7 +60,7 @@ accept_loop(ListenSocket) ->
 %%we should start new thread to handle client
 %%generate new id using id_generator
 process_clientSocket(Socket) ->
-  Session = schat_server:create_session(),
+  Session = schat_server:create_session(Socket),
   case gen_tcp:controlling_process(Socket, Session) of
     {error, Reason} ->
       io:format("bind socket error", []);

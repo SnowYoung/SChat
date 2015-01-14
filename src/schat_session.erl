@@ -9,12 +9,13 @@
 -module(schat_session).
 -author("snow").
 
--behaviour(gen_fsm).
 -include("schat.hrl").
 -include("schat_codec.hrl").
 
+-behaviour(gen_fsm).
+
 %% API
--export([start_link/0, deliver/1]).
+-export([start_link/1, deliver/1]).
 
 %% gen_fsm callbacks
 -export([init/1,
@@ -43,9 +44,9 @@
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec(start_link() -> {ok, pid()} | ignore | {error, Reason :: term()}).
-start_link() ->
-  gen_fsm:start_link({local, ?SERVER}, ?MODULE, [], []).
+-spec(start_link(Args::any()) -> {ok, pid()} | ignore | {error, Reason :: term()}).
+start_link(Socket) ->
+  gen_fsm:start_link( ?MODULE, [Socket], []).
 
 %%%===================================================================
 %%% gen_fsm callbacks
@@ -64,8 +65,8 @@ start_link() ->
   {ok, StateName :: atom(), StateData :: #client_session{}} |
   {ok, StateName :: atom(), StateData :: #client_session{}, timeout() | hibernate} |
   {stop, Reason :: term()} | ignore).
-init([]) ->
-  {ok, wait_auth_or_register, #client_session{}}.
+init(Socket) ->
+  {ok, wait_auth_or_register, #client_session{user=#user{socket = Socket}}}.
 
 deliver(Packet) ->
 
@@ -77,29 +78,29 @@ wait_auth_or_register(_Event, State) ->
       case Packet#packet.type of
         <<"register">> ->
           case schat_register:process(Packet) of
-            {ok, Id} ->
-              NewUser = State#client_session.user#user{id = Id},
+            {ok, Id, Name} ->
+              NewUser = State#client_session.user#user{id = Id, name = Name},
               NewState = State#client_session{user = NewUser},
               schat_server:bind_session(NewUser),
               StateName = active,
               %gen_tcp:send(State#client_session.user#user.socket, jsx:encode([{from, <<"server">>}, {to, <<"a">>}]));
-              State#client_session.user#user.session ! {deliver, schat_codec:packet(Id,"register",schat_codec:enc_reg_resp(Id,"success",""))};
+              State#client_session.user#user.session ! {deliver, schat_codec:packet(Id, "register", schat_codec:enc_reg_resp(Id, "success", ""))};
             _ ->
               io:format("register failed"),
-              State#client_session.user#user.session ! {deliver, schat_codec:packet("0","register",schat_codec:enc_reg_resp_err("username already use"))},
+              State#client_session.user#user.session ! {deliver, schat_codec:packet("0", "register", schat_codec:enc_reg_resp_err("username already use"))},
               NewState = State,
               StateName = wait_auth_or_register
           end;
         <<"auth">> ->
           case schat_auth:process(Packet) of
-            {ok, Id} ->
-              NewUser = State#client_session.user#user{id = Id},
+            {ok, Id, Name} ->
+              NewUser = State#client_session.user#user{id = Id, name = Name},
               NewState = State#client_session{user = NewUser},
               schat_server:bind_session(NewUser),
               StateName = active,
-              State#client_session.user#user.session ! {deliver, schat_codec:packet(Id,"auth",schat_codec:enc_reg_resp(Id,"success",""))};
+              State#client_session.user#user.session ! {deliver, schat_codec:packet(Id, "auth", schat_codec:enc_reg_resp(Id, "success", ""))};
             _ ->
-              State#client_session.user#user.session ! {deliver, schat_codec:packet("0","auth",schat_codec:enc_reg_resp_err("username or password error"))},
+              State#client_session.user#user.session ! {deliver, schat_codec:packet("0", "auth", schat_codec:enc_reg_resp_err("username or password error"))},
               NewState = State,
               StateName = wait_auth_or_register,
               io:format("auth failed")
@@ -107,6 +108,7 @@ wait_auth_or_register(_Event, State) ->
         _ ->
           NewState = State,
           StateName = wait_auth_or_register
+
       end;
     _ ->
       NewState = State,
@@ -214,15 +216,23 @@ handle_info({bind, Socket}, StateName, State) ->
 %%   {next_state, StateName, State};
 handle_info({tcp, Socket, Data}, StateName, State) ->
   io:format("client_session tcp data recived ~p~n", [Data]),
-  Packet = schat_parse:parse_packet(Data),
-  gen_fsm:send_event(?SERVER, {packet, Packet}),
-  {next_state, StateName, State};
+
+  case jsx:is_json(Data) of
+    true ->
+      Packet = schat_parse:parse_packet(Data),
+      gen_fsm:send_event(State#client_session.user#user.session, {packet, Packet}),
+      {next_state, StateName, State};
+    false ->
+      gen_tcp:send(Socket, <<"usejson">>),
+      {next_state, StateName, State}
+  end;
+
 handle_info({tcp_closed, Socket}, StateName, State) ->
   case StateName of
     active ->
       schat_server:logout(State#client_session.user);
     _ ->
-      ok
+      State#client_session.user#user.session ! {stop}
   end,
   {next_state, stop, State};
 handle_info(stop, StateName, State) ->

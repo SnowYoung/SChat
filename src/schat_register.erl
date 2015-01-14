@@ -110,7 +110,7 @@ handle_call({register, UserName, Password}, _From, State) ->
     [] ->
       case schat_odbc:add_user(UserName, Password) of
         {atomic, Id} ->
-          Reply = {ok, Id};
+          Reply = {ok, Id, UserName};
         {aborted, Reason} ->
           Reply = {error, add_user_error, Reason}
       end;
