@@ -82,6 +82,7 @@ handle_call({create_session,Socket}, _From, State) ->
   {reply, Pid, State};
 handle_call({remove_user, User}, _From, State) ->
   Key = User#user.id,
+  io:format("user :~p,logout~n",[User]),
   ets:delete(?ETS_USERS, Key),
   User#user.session ! {stop},
   {reply, ok, State};
@@ -94,9 +95,9 @@ handle_call({get_session,Key},_From,State) ->
   end,
   {reply, Reply,State};
 handle_call({get_users},_From,State) ->
-  ets:tab2list(?ETS_USERS);
-
-handle_call({send_msg, Msg}, _From, State) ->
+  Users = ets:tab2list(?ETS_USERS),
+  {reply,Users,State};
+handle_call({send_msg, Id,Msg}, _From, State) ->
   Key = ets:first(?ETS_USERS),
   {reply, ok, State}.
 

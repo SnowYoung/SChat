@@ -41,7 +41,7 @@ dec_message(Body,NewM).
 
 
 dec_query(Body)->
-  dec_message(Body,#p_query{}).
+  dec_query(Body,#p_query{}).
 dec_query([],M)->
   M;
 dec_query([Item|Body],M) ->
@@ -54,7 +54,7 @@ dec_query([Item|Body],M) ->
 dec_query(Body,NewM).
 
 enc_query_user_all_reply(Users)->
-  [{type,<<"success">>},{type,Users}].
+  [{type,<<"success">>},{data,Users}].
 
 
 to_binary(X) ->

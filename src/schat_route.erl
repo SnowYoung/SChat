@@ -10,15 +10,15 @@
 -author("snow").
 
 -include("schat_codec.hrl").
--export([route/1]).
+-export([route/2]).
 
-route(Packet) ->
+route(Packet,Session) ->
   io:format("route packet: ~p~n", [Packet]),
   case Packet#packet.type of
     <<"message">> ->
         handle_message:process(Packet);
     <<"query">> ->
-        handle_query:process(Packet);
+        handle_query:process(Packet,Session);
     _ ->
       ok
   end.

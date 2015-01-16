@@ -119,7 +119,7 @@ active(_Event, State) ->
   case _Event of
     {packet, Packet} ->
       io:format("receive packet ~p~n", [Packet]),
-      schat_route:route(Packet),
+      schat_route:route(Packet,self()),
       ok;
     _ ->
       ok
@@ -232,8 +232,9 @@ handle_info({tcp_closed, Socket}, StateName, State) ->
     active ->
       schat_server:logout(State#client_session.user);
     _ ->
-      State#client_session.user#user.session ! {stop}
+      ok
   end,
+  State#client_session.user#user.session ! stop,
   {next_state, stop, State};
 handle_info(stop, StateName, State) ->
   io:format("client stop"),
