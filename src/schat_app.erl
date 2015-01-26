@@ -15,7 +15,9 @@
 -export([start/2, stop/1]).
 
 start(_Type, _Args) ->
+  %启动监听树
   schat_sup:start_link(),
+  %启动端口监听
   schat_listener:start(9999).
 stop(_State) ->
   ok.

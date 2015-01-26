@@ -1,20 +1,18 @@
 %%%-------------------------------------------------------------------
 %%% @author snow
-%%% @copyright (C) 2014, <COMPANY>
+%%% @copyright (C) 2015, <COMPANY>
 %%% @doc
 %%%
 %%% @end
-%%% Created : 26. 十二月 2014 上午11:26
+%%% Created : 21. 一月 2015 上午10:59
 %%%-------------------------------------------------------------------
--module(schat_server).
+-module(schat_offline).
 -author("snow").
 
--define(TPC_OPTIONS, [binary, {packet, 0}, {reuseaddr, true}, {active, false}]).
--define(DEF_PORT, 9999).
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, create_session/1, bind_session/1, logout/1,deliver/1,get_session/1,get_users/0]).
+-export([start_link/0]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -28,17 +26,9 @@
 
 -record(state, {}).
 
--include("schat.hrl").
--include("schat_codec.hrl").
-
 %%%===================================================================
 %%% API
 %%%===================================================================
-
-deliver(Packet)->
-  gen_server:call(?MODULE,{deliver,Packet}).
-
-
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -55,15 +45,21 @@ start_link() ->
 %%% gen_server callbacks
 %%%===================================================================
 
-%%%
-%%% 初始化 session 表
-%%%
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Initializes the server
+%%
+%% @spec init(Args) -> {ok, State} |
+%%                     {ok, State, Timeout} |
+%%                     ignore |
+%%                     {stop, Reason}
+%% @end
+%%--------------------------------------------------------------------
 -spec(init(Args :: term()) ->
   {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
   {stop, Reason :: term()} | ignore).
 init([]) ->
-  lager:info("schat_server started"),
-  ets:new(?ETS_USERS, [public, ordered_set, named_table, {keypos, #user.id}]),
   {ok, #state{}}.
 
 %%--------------------------------------------------------------------
@@ -81,31 +77,16 @@ init([]) ->
   {noreply, NewState :: #state{}, timeout() | hibernate} |
   {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
   {stop, Reason :: term(), NewState :: #state{}}).
-handle_call({create_session,Socket}, _From, State) ->
-  {ok, Pid} = schat_session:start_link(Socket),
-  {reply, Pid, State};
-handle_call({remove_user, User}, _From, State) ->
-  Key = User#user.id,
-  io:format("user :~p,logout~n",[User]),
-  ets:delete(?ETS_USERS, Key),
-  User#user.session ! {stop},
-  {reply, ok, State};
-handle_call({deliver,Packet},_From,State)->
-  To = Packet#packet.to,
-  case p_get_session(To) of
-    {ok,Session} ->
-      Session#user.session ! {deliver,schat_codec:enc_packet(Packet)};
-    {error,Reason} ->
-      io:format("user ~w offline~n",[To])
-  end,
-  {reply, ok, State};
-handle_call({get_session,Key},_From,State) ->
-  {reply, p_get_session(Key),State};
-handle_call({get_users},_From,State) ->
-  Users = ets:tab2list(?ETS_USERS),
-  {reply,Users,State}.
+handle_call(_Request, _From, State) ->
+  {reply, ok, State}.
 
-
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Handling cast messages
+%%
+%% @end
+%%--------------------------------------------------------------------
 -spec(handle_cast(Request :: term(), State :: #state{}) ->
   {noreply, NewState :: #state{}} |
   {noreply, NewState :: #state{}, timeout() | hibernate} |
@@ -113,6 +94,16 @@ handle_call({get_users},_From,State) ->
 handle_cast(_Request, State) ->
   {noreply, State}.
 
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Handling all non call/cast messages
+%%
+%% @spec handle_info(Info, State) -> {noreply, State} |
+%%                                   {noreply, State, Timeout} |
+%%                                   {stop, Reason, State}
+%% @end
+%%--------------------------------------------------------------------
 -spec(handle_info(Info :: timeout() | term(), State :: #state{}) ->
   {noreply, NewState :: #state{}} |
   {noreply, NewState :: #state{}, timeout() | hibernate} |
@@ -120,44 +111,36 @@ handle_cast(_Request, State) ->
 handle_info(_Info, State) ->
   {noreply, State}.
 
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% This function is called by a gen_server when it is about to
+%% terminate. It should be the opposite of Module:init/1 and do any
+%% necessary cleaning up. When it returns, the gen_server terminates
+%% with Reason. The return value is ignored.
+%%
+%% @spec terminate(Reason, State) -> void()
+%% @end
+%%--------------------------------------------------------------------
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
     State :: #state{}) -> term()).
 terminate(_Reason, _State) ->
   ok.
 
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Convert process state when code is changed
+%%
+%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
+%% @end
+%%--------------------------------------------------------------------
 -spec(code_change(OldVsn :: term() | {down, term()}, State :: #state{},
     Extra :: term()) ->
   {ok, NewState :: #state{}} | {error, Reason :: term()}).
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
 
-%% 获取当前服务器在线用户
-get_users()->
-  gen_server:call(?MODULE,{get_users}).
-
-%% 创建session
-create_session(Socket) ->
-  gen_server:call(?MODULE, {create_session,Socket}).
-
-%% 用户绑定session
-bind_session(Session) ->
-  io:format("bind session ~p~n",[Session]),
-  ets:insert(?ETS_USERS, Session).
-
-%% 通过用户id 获取用户session
-get_session(Id) ->
-  gen_server:call(?MODULE,{get_session,Id}).
-
-%% 用户退出  删除session
-logout(Ref) ->
-  gen_server:call(?MODULE, {remove_user, Ref}),
-  ok.
-
-
-p_get_session(Key)->
-case ets:lookup(?ETS_USERS,Key) of
-[Session] ->
- { ok,Session};
-_ ->
- {error,not_found}
-end.
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================

@@ -1,11 +1,13 @@
 %%%-------------------------------------------------------------------
 %%% @author snow
-%%% @copyright (C) 2014, <COMPANY>
+%%% @copyright (C) 2015, <COMPANY>
 %%% @doc
 %%%
 %%% @end
-%%% Created : 26. 十二月 2014 下午4:47
+%%% Created : 22. 一月 2015 下午12:09
 %%%-------------------------------------------------------------------
+-module(schat_route_message).
 -author("snow").
 
--define(SCHAT_MSG(From,To,Msg),list_to_binary("\"from\":"++From++"\",to\":"++To++"\"type\":\"msg\",\"body\":"++Msg)).
+%% API
+-export([]).

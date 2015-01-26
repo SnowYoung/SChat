@@ -4,8 +4,9 @@
     {registered, []},
     {applications, [kernel, stdlib]},
     {mod, {schat_app, []}},
-    {modules, [ schat, schat_app, schat_auth,
+    {modules, [schat, schat_app, schat_auth,
       schat_listener, schat_odbc, schat_parse,
       schat_register, schat_route, schat_server, schat_session,
-      schat_sup,schat_codec,handle_message]},
+      schat_sup, schat_codec, handle_message, schat_offline,
+      schat_muc_sup, schat_muc_room, schat_muc, schat_route_message, schat_route_query]},
     {env, []}]}.

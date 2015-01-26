@@ -10,10 +10,12 @@
 
 -record(user,{id,name,token,mode,client,socket,session}).
 
--record(message,{type,from,content}).
+-record(room_info, {id,name,creater,level=1,maxm=50,ctime,type=1,mnum=0,pid}).
+-record(room_user, {id,rid,uid,jtime,type,state}).
 
 -record(client_session,{user=#user{},state=no_auth,groups}).
 
--define(MANAGER_CLIENTS, clients_manager).
-
 -define(ETS_USERS,ets_users).
+-define(ETS_ROOMS, ets_rooms).
+-define(ETS_ROOM_USER,ets_room_user).
+

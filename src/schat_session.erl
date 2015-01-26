@@ -131,19 +131,7 @@ stop(_Event, State) ->
       ok
   end,
   {next_state, stop, State}.
-%%----------------------------
-%% private func
 
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% Whenever a gen_fsm receives an event sent using
-%% gen_fsm:send_all_state_event/2, this function is called to handle
-%% the event.
-%%
-%% @end
-%%--------------------------------------------------------------------
 -spec(handle_event(Event :: term(), StateName :: atom(),
     StateData :: #client_session{}) ->
   {next_state, NextStateName :: atom(), NewStateData :: #client_session{}} |
@@ -153,15 +141,7 @@ stop(_Event, State) ->
 handle_event(_Event, StateName, State) ->
   {next_state, StateName, State}.
 
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% Whenever a gen_fsm receives an event sent using
-%% gen_fsm:sync_send_all_state_event/[2,3], this function is called
-%% to handle the event.
-%%
-%% @end
-%%--------------------------------------------------------------------
+
 -spec(handle_sync_event(Event :: term(), From :: {pid(), Tag :: term()},
     StateName :: atom(), StateData :: term()) ->
   {reply, Reply :: term(), NextStateName :: atom(), NewStateData :: term()} |
@@ -176,15 +156,7 @@ handle_sync_event(_Event, _From, StateName, State) ->
   Reply = ok,
   {reply, Reply, StateName, State}.
 
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% This function is called by a gen_fsm when it receives any
-%% message other than a synchronous or asynchronous event
-%% (or a system message).
-%%
-%% @end
-%%--------------------------------------------------------------------
+
 -spec(handle_info(Info :: term(), StateName :: atom(),
     StateData :: term()) ->
   {next_state, NextStateName :: atom(), NewStateData :: term()} |
@@ -208,18 +180,11 @@ handle_info({bind, Socket}, StateName, State) ->
   NewState = State#client_session{user = #user{socket = Socket, session = self()}},
   io:format("NewState ~p~n", [NewState]),
   {next_state, StateName, NewState};
-%to start reciving
-%% handle_info({start, Pid}, StateName, State) ->
-%%   io:format("client_session:reciving start...~p~n", [State#user.socket]),
-%%   NewState = State#client_session{user = #user{pid = Pid}},
-%%   process_msg(NewState),
-%%   {next_state, StateName, State};
 handle_info({tcp, Socket, Data}, StateName, State) ->
   io:format("client_session tcp data recived ~p~n", [Data]),
-
   case jsx:is_json(Data) of
     true ->
-      Packet = schat_parse:parse_packet(Data),
+      Packet = schat_codec:dec_packet(Data),
       gen_fsm:send_event(State#client_session.user#user.session, {packet, Packet}),
       {next_state, StateName, State};
     false ->
@@ -242,16 +207,6 @@ handle_info(stop, StateName, State) ->
 handle_info(_Info, StateName, State) ->
   {next_state, StateName, State}.
 
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% This function is called by a gen_fsm when it is about to
-%% terminate. It should be the opposite of Module:init/1 and do any
-%% necessary cleaning up. When it returns, the gen_fsm terminates with
-%% Reason. The return value is ignored.
-%%
-%% @end
-%%--------------------------------------------------------------------
 -spec(terminate(Reason :: normal | shutdown | {shutdown, term()}
 | term(), StateName :: atom(), StateData :: term()) -> term()).
 terminate(_Reason, _StateName, _State) ->
