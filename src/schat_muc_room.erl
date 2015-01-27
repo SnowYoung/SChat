@@ -39,7 +39,7 @@ add_user(RoomUser)->
     {t_room_user,Id,Rid,Uid,JTime,Type,State}->
       User = #room_user{id=Id,rid = Rid,uid=Uid,jtime = JTime,type = Type,state = State},
       io:format("user ~w joined the room~n",[User#room_user.id]),
-      ets:insert(?ETS_ROOM_USER,User);
+      ets:insert(?ETS_ROOM_USER(Rid),User);
     _ ->
       ok
   end.
@@ -49,7 +49,7 @@ add_user(RoomUser)->
   {stop, Reason :: term()} | ignore).
 init([Param]) ->
   % 创建 房间用户表
-  ets:new(?ETS_ROOM_USER, [public, ordered_set, named_table, {keypos, #room_user.id}]),
+  ets:new(?ETS_ROOM_USER(Param#room_info.id), [public,ordered_set, named_table, {keypos, #room_user.uid}]),
   case is_record(Param,room_info) of
     true ->
       io:format("room ~p started~n",[Param#room_info.id]),
@@ -94,7 +94,7 @@ handle_info({user_join,User},State) ->
   add_user(User),
   {noreply,State};
 handle_info({deliver,Packet},State) ->
-  Users = ets:tab2list(?ETS_ROOM_USER),
+  Users = ets:tab2list(?ETS_ROOM_USER(Packet#packet.room)),
   lists:foreach(fun(User)->
     NewPacket = Packet#packet{to = User#room_user.uid},
     schat_server:deliver(NewPacket)

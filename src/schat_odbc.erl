@@ -80,3 +80,7 @@ get_room_users(Rid) ->
   do(qlc:q([X || X <- mnesia:table(?T_ROOM_USER), X#t_room_user.rid =:= Rid])).
 get_room_user(Rid, Uid) ->
   do(qlc:q([X || X <- mnesia:table(?T_ROOM_USER), X#t_room_user.rid =:= Rid, X#t_room_user.uid =:= Uid])).
+
+get_user_rooms(Uid) ->
+  do(qlc:q([Y || X<- mnesia:table(?T_ROOM_USER), X#t_room_user.uid =:= Uid,
+                 Y<- mnesia:table(?T_ROOM), Y#t_room.id =:= X#t_room_user.rid])).

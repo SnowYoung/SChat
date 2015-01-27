@@ -14,5 +14,8 @@
 -record(packet_auth,{id,username,password}).
 
 -record(p_msg,{type,content,messageType}).
+-record(p_query,{type,key,value,fields}).
 
--record(p_query,{type,key,value}).
+-record(muc_room_fields,{name}).
+
+-define(QUERY_NOT_SUPPORT,[{warning,<<"query not support">>}]).

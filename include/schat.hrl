@@ -17,5 +17,5 @@
 
 -define(ETS_USERS,ets_users).
 -define(ETS_ROOMS, ets_rooms).
--define(ETS_ROOM_USER,ets_room_user).
+-define(ETS_ROOM_USER(ID),list_to_atom("ets_room_user"++integer_to_list(ID))).
 

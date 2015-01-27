@@ -10,15 +10,22 @@
 -author("snow").
 
 -include("schat_codec.hrl").
--export([route/2]).
+-export([route/1]).
 
-route(Packet,Session) ->
+route(Packet) ->
   io:format("route packet: ~p~n", [Packet]),
   case Packet#packet.type of
     <<"message">> ->
-        handle_message:process(Packet);
+        case Packet#packet.body#p_msg.type of
+          <<"chat">> ->
+            handle_message:process(Packet);
+          <<"groupChat">> ->
+            schat_muc:deliver(Packet);
+          _ ->
+            io:format("message type not support")
+        end;
     <<"query">> ->
-        handle_query:process(Packet,Session);
+        handle_query:process(Packet);
     _ ->
       ok
   end.

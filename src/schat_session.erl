@@ -119,7 +119,7 @@ active(_Event, State) ->
   case _Event of
     {packet, Packet} ->
       io:format("receive packet ~p~n", [Packet]),
-      schat_route:route(Packet,self()),
+      schat_route:route(Packet),
       ok;
     _ ->
       ok

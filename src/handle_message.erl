@@ -64,7 +64,6 @@ init([]) ->
   {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
   {stop, Reason :: term(), NewState :: #state{}}).
 handle_call({deliver,Packet},_From,State) ->
-
   schat_server:deliver(Packet),
 
 %%   case schat_server:get_session(Packet#packet.to) of

@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, create_room/2, get_rooms/0,join_room/2,deliver/1]).
+-export([start_link/0, create_room/2, get_rooms/0, join_room/2, deliver/1,get_user_rooms/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -36,20 +36,26 @@
 create_room(Name, Creater) ->
   case gen_server:call(?MODULE, {create_room, Name, Creater}) of
     {ok, Room} ->
-      start_room(Room);
+      case start_room(Room) of
+        {ok, Id} ->
+          join_room(Id, Creater),
+          {ok, Id};
+        {error, Reason} ->
+          {error, Reason}
+      end;
     {error, Reason} ->
-      ok
-  end,
-  ok.
+      {error, Reason}
+  end.
 
-deliver(Packet)->
-  ok.
+deliver(Packet) ->
+  gen_server:call(?MODULE, {deliver, Packet}).
 
 get_rooms() ->
-  ok.
-
+  gen_server:call(?MODULE, {get_rooms}).
+get_user_rooms(Uid) ->
+  gen_server:call(?MODULE, {get_user_rooms,Uid}).
 join_room(Id, Uid) ->
-  gen_server:call(?MODULE,{join_room,Id,Uid}).
+  gen_server:call(?MODULE, {join_room, Id, Uid}).
 leave_room(Id, Uid) ->
   ok.
 
@@ -71,9 +77,11 @@ start_room(Room) ->
       RoomInfo = #room_info{id = Id, name = Name, creater = Creater, level = Level, maxm = MaxM, ctime = CTime, type = Type},
       {ok, Pid} = schat_muc_sup:start_room(RoomInfo),
       NewRoomInfo = RoomInfo#room_info{pid = Pid},
-      ets:insert(?ETS_ROOMS, NewRoomInfo);
+      ets:insert(?ETS_ROOMS, NewRoomInfo),
+      {ok, Id};
     _ ->
-      io:format("error~n")
+      io:format("error~n"),
+      {error, room_create_faild}
   end.
 
 
@@ -112,27 +120,35 @@ handle_call({create_room, Name, Creater}, _From, State) ->
       Reply = {error, create_fail}
   end,
   {reply, Reply, State};
-handle_call({join_room,Rid,Uid},_From, State) ->
-  case schat_odbc:get_room_user(Rid,Uid) of
-      [] ->
-        case schat_odbc:add_room_user(Rid,Uid) of
-          {atomic,User} ->
-            {ok,Room} =  get_room(Rid),
-            Room#room_info.pid ! {user_join,User},
-            Reply = {ok,joined};
-          _ ->
-            Reply = {error, join_fail}
-        end;
-      _ ->
-        Reply = {ok,already_join}
-  end,
-  {reply,Reply,State};
-handle_call({deliver,Packet},_From,State) ->
-  case ets:lookup(?ETS_ROOMS,Packet#packet.room) of
+handle_call({join_room, Rid, Uid}, _From, State) ->
+  case schat_odbc:get_room_user(Rid, Uid) of
     [] ->
-      ok
+      case schat_odbc:add_room_user(Rid, Uid) of
+        {atomic, User} ->
+          {ok, Room} = get_room(Rid),
+          Room#room_info.pid ! {user_join, User},
+          Reply = {ok, joined};
+        _ ->
+          Reply = {error, join_fail}
+      end;
+    _ ->
+      Reply = {ok, already_join}
   end,
-  {reply,ok,State};
+  {reply, Reply, State};
+handle_call({get_rooms}, _From, State) ->
+  Rooms = ets:tab2list(?ETS_ROOMS),
+  {reply, Rooms, State};
+handle_call({get_user_rooms,Uid},_From,State)->
+  Rooms = schat_odbc:get_user_rooms(Uid),
+  {reply,Rooms,State};
+handle_call({deliver, Packet}, _From, State) ->
+  case ets:lookup(?ETS_ROOMS, Packet#packet.room) of
+    [Room] ->
+      Room#room_info.pid ! {deliver, Packet};
+    _ ->
+      room_not_found
+  end,
+  {reply,ok, State};
 handle_call(_Request, _From, State) ->
   {reply, ok, State}.
 
@@ -164,10 +180,10 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-get_room(Id)->
-  case ets:lookup(?ETS_ROOMS,Id) of
+get_room(Id) ->
+  case ets:lookup(?ETS_ROOMS, Id) of
     [Room] ->
-      {ok,Room};
+      {ok, Room};
     _ ->
-      {error,room_notfound}
+      {error, room_notfound}
   end.

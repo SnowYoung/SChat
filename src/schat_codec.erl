@@ -27,7 +27,7 @@ enc_packet(Packet) ->
         <<"message">> ->
           Body = enc_message(Packet#packet.body);
         <<"query">> ->
-          Body = [];
+          Body = Packet#packet.body;
         _ ->
           Body = [],
           ok
@@ -60,6 +60,8 @@ dec_packet(Packet) ->
       case DecPacket#packet.type of
         <<"message">> ->
           Body = dec_message(DecPacket#packet.body);
+        <<"query">> ->
+          Body = dec_query(DecPacket#packet.body);
         _ ->
           Body = DecPacket#packet.body
       end,
@@ -79,7 +81,11 @@ dec_packet([Item | Packet], P) ->
     {<<"type">>, Type} ->
       NewP = P#packet{type = Type};
     {<<"body">>, Body} ->
-      NewP = P#packet{body = Body}
+      NewP = P#packet{body = Body};
+    {<<"room">>,Room} ->
+      NewP = P#packet{room = Room};
+    _ ->
+      NewP = p
   end,
   dec_packet(Packet, NewP).
 
@@ -118,23 +124,38 @@ enc_message(Message) ->
       error
   end.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-enc_reg_resp(Id, Type, Message) ->
-  [{id, to_binary(Id)}, {type, to_binary(Type)}, {message, to_binary(Message)}].
-
-enc_reg_resp_err(Message) ->
-  enc_reg_resp("0", "error", Message).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% query codec
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 dec_query(Body) ->
   dec_query(Body, #p_query{}).
 dec_query([], M) ->
-  M;
+  case M#p_query.key of
+    <<"create">> ->
+      case M#p_query.type of
+        <<"muc">> ->
+          Fields = enc_muc_room_fields(M#p_query.fields),
+          NewM = M#p_query{fields = Fields};
+        _ ->
+          NewM = M
+      end;
+    _ ->
+      NewM =  M
+  end,
+  NewM;
 dec_query([Item | Body], M) ->
   case Item of
     {<<"type">>, Type} ->
       NewM = M#p_query{type = Type};
     {<<"key">>, Key} ->
       NewM = M#p_query{key = Key};
+    {<<"value">>, Value} ->
+      NewM = M#p_query{value = Value};
+    {<<"fields">>,Fields} ->
+      NewM = M#p_query{fields = Fields};
     _ ->
       NewM = M
   end,
@@ -143,6 +164,25 @@ dec_query([Item | Body], M) ->
 enc_query_user_all_reply(Users) ->
   [{type, <<"success">>}, {data, Users}].
 
+enc_muc_room_fields(Fields)->
+  enc_muc_room_fields(Fields,#muc_room_fields{}).
+enc_muc_room_fields([],M)->
+  M;
+enc_muc_room_fields([Item|Items],M) ->
+  case Item of
+    {<<"name">>,Name} ->
+      NewM = M#muc_room_fields{name = Name};
+    _ ->
+      NewM = M
+  end,
+  enc_muc_room_fields(Items,NewM).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+enc_reg_resp(Id, Type, Message) ->
+  [{id, to_binary(Id)}, {type, to_binary(Type)}, {message, to_binary(Message)}].
+
+enc_reg_resp_err(Message) ->
+  enc_reg_resp("0", "error", Message).
 
 to_binary(X) ->
   case is_list(X) of
